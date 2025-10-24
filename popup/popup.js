@@ -4,28 +4,28 @@
 class ChzzkMatePopup {
   constructor() {
     this.currentStreamerId = null;
-    this.streamerVolumes = {};
+    this.savedStreamers = {};
     this.defaultVolume = 0.5;
-    
+
     this.init();
   }
 
   // 초기화
   async init() {
     console.log('ChzzkMate Popup: 초기화 시작');
-    
+
     // 현재 탭에서 스트리머 ID 추출
     await this.extractCurrentStreamerId();
-    
+
     // 저장된 데이터 로드
     await this.loadStoredData();
-    
+
     // UI 초기화
     this.initializeUI();
-    
+
     // 이벤트 리스너 설정
     this.setupEventListeners();
-    
+
     console.log('ChzzkMate Popup: 초기화 완료');
   }
 
@@ -49,11 +49,11 @@ class ChzzkMatePopup {
   // 저장된 데이터 로드
   async loadStoredData() {
     try {
-      const result = await chrome.storage.sync.get(['defaultVolume', 'streamerVolumes']);
-      this.defaultVolume = result.defaultVolume || 0.5;
-      this.streamerVolumes = result.streamerVolumes || {};
-      
-      console.log('ChzzkMate Popup: 데이터 로드됨', { defaultVolume: this.defaultVolume, streamerVolumes: this.streamerVolumes });
+      const result = await chrome.storage.sync.get(['defaultVolume', 'savedStreamers']);
+      this.defaultVolume = result.defaultVolume;
+      this.savedStreamers = result.savedStreamers || {};
+
+      console.log('ChzzkMate Popup: 데이터 로드됨', { defaultVolume: this.defaultVolume, savedStreamers: this.savedStreamers });
     } catch (error) {
       console.error('ChzzkMate Popup: 데이터 로드 실패:', error);
     }
@@ -79,8 +79,6 @@ class ChzzkMatePopup {
     // 저장된 스트리머 목록 업데이트
     this.updateStreamerList();
 
-    // 통계 업데이트
-    this.updateStats();
   }
 
   // 현재 스트리머 UI 업데이트
@@ -94,8 +92,8 @@ class ChzzkMatePopup {
     streamerIdElement.textContent = this.currentStreamerId;
 
     // 볼륨 설정 확인
-    const hasIndividualVolume = this.streamerVolumes.hasOwnProperty(this.currentStreamerId);
-    const currentVolume = hasIndividualVolume ? this.streamerVolumes[this.currentStreamerId] : this.defaultVolume;
+    const hasIndividualVolume = this.savedStreamers.hasOwnProperty(this.currentStreamerId);
+    const currentVolume = hasIndividualVolume ? this.savedStreamers[this.currentStreamerId].volume : this.defaultVolume;
 
     // 슬라이더 설정
     volumeSlider.value = currentVolume;
@@ -114,34 +112,36 @@ class ChzzkMatePopup {
   // 저장된 스트리머 목록 업데이트
   updateStreamerList() {
     const streamerList = document.getElementById('streamerList');
-    const streamerEntries = Object.entries(this.streamerVolumes);
+    const streamerEntries = Object.entries(this.savedStreamers);
 
     if (streamerEntries.length === 0) {
       streamerList.innerHTML = '<div class="no-streamers">저장된 스트리머가 없습니다</div>';
       return;
     }
-
-    streamerList.innerHTML = streamerEntries.map(([streamerId, volume]) => `
-      <div class="streamer-item">
-        <div class="streamer-item-info">
-          <div class="streamer-item-id">${streamerId}</div>
-          <div class="streamer-item-volume">${Math.round(volume * 100)}%</div>
+    const sortedStreamerEntries = streamerEntries.sort((a, b) => b[1].date - a[1].date);
+    streamerList.innerHTML = sortedStreamerEntries.map(([streamerId, streamerInfo]) => {
+      console.log("Map:", streamerId, streamerInfo)
+      return `
+        <div class="streamer-item">
+          <div class="streamer-avatar">
+            <img src="${streamerInfo.streamerAvatar}" alt="${streamerInfo.name}"/>
+          </div>
+          <div class="streamer-item-info">
+            <div class="streamer-item-id">${streamerInfo.name}</div>
+            <div class="streamer-item-volume">${Math.round(streamerInfo.volume * 100)}%</div>
+          </div>
+          <div class="streamer-item-actions">
+            <button class="streamer-item-btn delete" data-streamer-id="${streamerId}">삭제</button>
+          </div>
         </div>
-        <div class="streamer-item-actions">
-          <button class="streamer-item-btn" onclick="popup.editStreamerVolume('${streamerId}')">편집</button>
-          <button class="streamer-item-btn delete" onclick="popup.deleteStreamerVolume('${streamerId}')">삭제</button>
-        </div>
-      </div>
-    `).join('');
-  }
+      `}
+    ).join('');
 
-  // 통계 업데이트
-  updateStats() {
-    const savedCount = document.getElementById('savedCount');
-    const defaultVolumeDisplay = document.getElementById('defaultVolumeDisplay');
-
-    savedCount.textContent = Object.keys(this.streamerVolumes).length;
-    defaultVolumeDisplay.textContent = `${Math.round(this.defaultVolume * 100)}%`;
+    streamerList.querySelectorAll('.streamer-item-btn.delete').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const streamerId = btn.getAttribute('data-streamer-id');
+        this.deleteStreamerVolume(streamerId);
+    })});
   }
 
   // 이벤트 리스너 설정
@@ -197,13 +197,13 @@ class ChzzkMatePopup {
 
     try {
       // 스토리지 업데이트
-      this.streamerVolumes[this.currentStreamerId] = volume;
-      await chrome.storage.sync.set({ streamerVolumes: this.streamerVolumes });
+      this.savedStreamers[this.currentStreamerId] = volume;
+      await chrome.storage.sync.set({ savedStreamers: this.savedStreamers });
 
       // UI 업데이트
       const volumeValue = document.getElementById('currentVolumeValue');
       const volumeType = document.getElementById('volumeType');
-      
+
       volumeValue.textContent = `${Math.round(volume * 100)}%`;
       volumeType.textContent = '개별 설정 사용 중';
       volumeType.style.color = '#00FFA3';
@@ -226,7 +226,6 @@ class ChzzkMatePopup {
       const volumeValue = document.getElementById('defaultVolumeValue');
       volumeValue.textContent = `${Math.round(volume * 100)}%`;
 
-      this.updateStats();
       console.log(`ChzzkMate Popup: 기본 볼륨 업데이트됨: ${volume}`);
     } catch (error) {
       console.error('ChzzkMate Popup: 기본 볼륨 업데이트 실패:', error);
@@ -260,13 +259,12 @@ class ChzzkMatePopup {
 
     try {
       // 개별 설정 삭제
-      delete this.streamerVolumes[this.currentStreamerId];
-      await chrome.storage.sync.set({ streamerVolumes: this.streamerVolumes });
+      delete this.savedStreamers[this.currentStreamerId];
+      await chrome.storage.sync.set({ savedStreamers: this.savedStreamers });
 
       // UI 업데이트
       this.updateCurrentStreamerUI();
       this.updateStreamerList();
-      this.updateStats();
 
       // 현재 탭의 비디오 볼륨도 기본값으로 변경
       await this.updateCurrentTabVolume(this.defaultVolume);
@@ -282,30 +280,27 @@ class ChzzkMatePopup {
     const newVolume = prompt(`${streamerId}의 볼륨을 입력하세요 (0-100):`);
     if (newVolume !== null && !isNaN(newVolume)) {
       const volume = Math.max(0, Math.min(1, parseFloat(newVolume) / 100));
-      this.streamerVolumes[streamerId] = volume;
-      await chrome.storage.sync.set({ streamerVolumes: this.streamerVolumes });
+      this.savedStreamers[streamerId] = volume;
+      await chrome.storage.sync.set({ savedStreamers: this.savedStreamers });
       this.updateStreamerList();
-      this.updateStats();
     }
   }
 
   // 스트리머 볼륨 삭제
   async deleteStreamerVolume(streamerId) {
     if (confirm(`${streamerId}의 볼륨 설정을 삭제하시겠습니까?`)) {
-      delete this.streamerVolumes[streamerId];
-      await chrome.storage.sync.set({ streamerVolumes: this.streamerVolumes });
+      delete this.savedStreamers[streamerId];
+      await chrome.storage.sync.set({ savedStreamers: this.savedStreamers });
       this.updateStreamerList();
-      this.updateStats();
     }
   }
 
   // 모든 볼륨 설정 삭제
   async clearAllVolumes() {
     if (confirm('모든 볼륨 설정을 삭제하시겠습니까?')) {
-      this.streamerVolumes = {};
-      await chrome.storage.sync.set({ streamerVolumes: this.streamerVolumes });
+      this.savedStreamers = {};
+      await chrome.storage.sync.set({ savedStreamers: this.savedStreamers });
       this.updateStreamerList();
-      this.updateStats();
       this.updateCurrentStreamerUI();
     }
   }

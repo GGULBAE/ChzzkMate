@@ -78,6 +78,11 @@ body {
     color: #00FFA3;
 }
 
+.streamer-avatar > img {
+    width: 30px; height: 30px;
+    border-radius: 15px;
+    margin-right: 12px;
+}
 /* 스트리머 정보 */
 .streamer-info {
     display: flex;
@@ -91,7 +96,6 @@ body {
     background: #333;
     padding: 6px 8px;
     border-radius: 4px;
-    font-family: monospace;
 }
 
 .volume-control {
@@ -204,11 +208,11 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    flex: 1;
 }
 
 .streamer-item-id {
     color: #ccc;
-    font-family: monospace;
 }
 
 .streamer-item-volume {
@@ -361,3 +365,9 @@ input[type="range"]::-moz-range-thumb {
 .streamer-list::-webkit-scrollbar-thumb:hover {
     background: #00e68a;
 }
+
+.chzzkmate-save-button > img:hover {
+    background-color: hsla(0, 0%, 100%, 0.35);
+    transform: translateY(-1px);
+  }
+  

@@ -24,3 +24,17 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     console.log('ChzzkMate 스토리지 변경됨:', changes);
   }
 });
+
+let lastUrl = "";
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url && changeInfo.url !== lastUrl) {
+    lastUrl = changeInfo.url;
+    if (changeInfo.url.includes("chzzk.naver.com")) {
+      chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"]
+      });
+    }
+  }
+});
