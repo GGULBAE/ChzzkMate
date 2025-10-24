@@ -1,119 +1,74 @@
 // ChzzkMate Content Script
-// 치지직 페이지에서 비디오 플레이어 감지 및 볼륨 자동 조절
+// 치지직 페이지에서 볼륨 저장 버튼 추가
 
-class ChzzkMateVolumeController {
+class ChzzkMate {
   constructor() {
     this.videoElement = null;
-    this.streamerId = null;
-    this.volumeUI = null;
-    this.observer = null;
-    this.isInitialized = false;
-    
+    this.streamerId = this.getStreamerId();
+    this.saveButton = null;
     this.init();
   }
 
-  // 초기화
   init() {
-    console.log('ChzzkMate: Content script 초기화');
+    console.log('ChzzkMate: 초기화 시작');
     
-    // 스트리머 ID 추출
-    this.extractStreamerId();
+    // 비디오 엘리먼트 찾기
+    this.findVideoElement();
     
-    // 비디오 엘리먼트 감지
-    this.setupVideoObserver();
+    // 볼륨 설정 로드
+    this.loadVolumeSetting();
     
-    // 페이지 로드 완료 후 한 번 더 확인
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => this.checkForVideo());
-    } else {
-      this.checkForVideo();
-    }
+    // 저장 버튼 추가
+    this.addSaveButton();
+    
+    // 볼륨 변경 이벤트 리스너
+    this.setupVolumeListener();
   }
 
-  // URL에서 스트리머 ID 추출
-  extractStreamerId() {
+  // 스트리머 ID 추출
+  getStreamerId() {
     const url = window.location.href;
-    const match = url.match(/\/channel\/([^\/\?]+)/);
-    if (match) {
-      this.streamerId = match[1];
-      console.log('ChzzkMate: 스트리머 ID 추출됨:', this.streamerId);
+    const match = url.match(/\/live\/([^\/\?]+)/);
+    return match ? match[1] : null;
+  }
+
+  // 비디오 엘리먼트 찾기
+  findVideoElement() {
+    this.videoElement = document.querySelector('video');
+    if (this.videoElement) {
+      console.log('ChzzkMate: 비디오 엘리먼트 발견');
     } else {
-      console.log('ChzzkMate: 스트리머 ID를 찾을 수 없음');
+      console.log('ChzzkMate: 비디오 엘리먼트를 찾을 수 없습니다.');
     }
   }
 
-  // 비디오 엘리먼트 감지를 위한 Observer 설정
-  setupVideoObserver() {
-    this.observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList') {
-          mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              // 비디오 엘리먼트 직접 추가 확인
-              if (node.tagName === 'VIDEO') {
-                this.handleVideoElement(node);
-              }
-              // 하위 노드에서 비디오 엘리먼트 찾기
-              const videos = node.querySelectorAll ? node.querySelectorAll('video') : [];
-              videos.forEach(video => this.handleVideoElement(video));
-            }
-          });
-        }
-      });
-    });
-
-    this.observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-
-  // 비디오 엘리먼트 처리
-  handleVideoElement(video) {
-    if (this.videoElement === video) return;
-    
-    console.log('ChzzkMate: 비디오 엘리먼트 감지됨');
-    this.videoElement = video;
-    
-    // 볼륨 설정 적용
-    this.applyVolumeSettings();
-    
-    // 볼륨 변경 이벤트 리스너 추가
-    this.setupVolumeListeners();
-    
-    // UI 추가
-    this.addVolumeUI();
-  }
-
-  // 저장된 볼륨 설정 적용
-  async applyVolumeSettings() {
-    if (!this.videoElement || !this.streamerId) return;
+  // 볼륨 설정 로드
+  async loadVolumeSetting() {
+    if (!this.streamerId || !this.videoElement) return;
 
     try {
-      const result = await chrome.storage.sync.get(['defaultVolume', 'streamerVolumes']);
-      const defaultVolume = result.defaultVolume || 0.5;
-      const streamerVolumes = result.streamerVolumes || {};
+      const result = await chrome.storage.sync.get([this.streamerId]);
+      const savedVolume = result[this.streamerId];
       
-      const targetVolume = streamerVolumes[this.streamerId] || defaultVolume;
-      
-      console.log(`ChzzkMate: 볼륨 적용 - 스트리머: ${this.streamerId}, 볼륨: ${targetVolume}`);
-      
-      this.videoElement.volume = targetVolume;
-      
-      // UI 업데이트
-      this.updateVolumeUI(targetVolume);
-      
+      if (savedVolume !== undefined) {
+        this.videoElement.volume = savedVolume;
+        console.log(`ChzzkMate: 저장된 볼륨 로드됨 - ${savedVolume}`);
+      } else {
+        // 기본 볼륨 설정
+        this.videoElement.volume = 0.5;
+        console.log('ChzzkMate: 기본 볼륨 설정됨 - 0.5');
+      }
     } catch (error) {
-      console.error('ChzzkMate: 볼륨 설정 적용 실패:', error);
+      console.error('ChzzkMate: 볼륨 설정 로드 실패:', error);
     }
   }
 
-  // 볼륨 변경 이벤트 리스너 설정
-  setupVolumeListeners() {
+  // 볼륨 변경 이벤트 리스너
+  setupVolumeListener() {
     if (!this.videoElement) return;
 
     this.videoElement.addEventListener('volumechange', () => {
-      if (this.streamerId) {
+      if (this.videoElement.volume !== undefined) {
         this.saveVolumeSetting(this.videoElement.volume);
       }
     });
@@ -136,208 +91,161 @@ class ChzzkMateVolumeController {
     }
   }
 
-  // 볼륨 UI 추가
-  addVolumeUI() {
-    if (!this.videoElement || this.volumeUI) return;
+  // 저장 버튼 추가 (pzp-pc__volume-control에 추가)
+  addSaveButton() {
+    if (this.saveButton) return;
 
-    // 기존 볼륨 UI 제거
-    const existingUI = document.querySelector('.chzzkmate-volume-ui');
-    if (existingUI) {
-      existingUI.remove();
+    // pzp-pc__volume-control 찾기
+    const volumeControl = document.querySelector('.pzp-pc__volume-control');
+    if (!volumeControl) {
+      console.log('ChzzkMate: pzp-pc__volume-control을 찾을 수 없습니다.');
+      return;
     }
 
-    // 볼륨 UI 생성
-    this.volumeUI = this.createVolumeUI();
+    // 기존 저장 버튼 제거
+    const existingSaveButton = document.querySelector('.chzzkmate-save-button');
+    if (existingSaveButton) {
+      existingSaveButton.remove();
+    }
+
+    // 저장 버튼 생성
+    this.saveButton = this.createSaveButton();
     
-    // 플레이어 컨트롤 바에 추가
-    const playerControls = this.findPlayerControls();
-    if (playerControls) {
-      playerControls.appendChild(this.volumeUI);
-      console.log('ChzzkMate: 볼륨 UI 추가됨');
-    }
+    // volume-control에 저장 버튼 추가
+    volumeControl.appendChild(this.saveButton);
+    console.log('ChzzkMate: 저장 버튼 추가됨');
   }
 
-  // 플레이어 컨트롤 바 찾기
-  findPlayerControls() {
-    // 치지직 플레이어 컨트롤 바 선택자들 (여러 가능성 시도)
-    const selectors = [
-      '.video-player-controls',
-      '.player-controls',
-      '.video-controls',
-      '[class*="control"][class*="bar"]',
-      '[class*="player"][class*="control"]'
-    ];
-
-    for (const selector of selectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        return element;
-      }
-    }
-
-    // 비디오 엘리먼트의 부모 컨테이너에서 찾기
-    let parent = this.videoElement.parentElement;
-    while (parent && parent !== document.body) {
-      const controls = parent.querySelector('[class*="control"]');
-      if (controls) {
-        return controls;
-      }
-      parent = parent.parentElement;
-    }
-
-    // 비디오 엘리먼트 바로 옆에 추가
-    return this.videoElement.parentElement;
-  }
-
-  // 볼륨 UI 생성
-  createVolumeUI() {
-    const container = document.createElement('div');
-    container.className = 'chzzkmate-volume-ui';
-    container.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 4px;
-      color: white;
-      font-size: 12px;
-      margin: 4px;
-    `;
-
-    // 볼륨 아이콘
-    const volumeIcon = document.createElement('span');
-    volumeIcon.textContent = '🔊';
-    volumeIcon.style.fontSize = '14px';
-
-    // 볼륨 슬라이더
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.min = '0';
-    slider.max = '1';
-    slider.step = '0.01';
-    slider.style.width = '80px';
-    slider.style.height = '4px';
-
-    // 볼륨 퍼센트 표시
-    const volumeText = document.createElement('span');
-    volumeText.className = 'chzzkmate-volume-text';
-    volumeText.style.minWidth = '35px';
-    volumeText.style.textAlign = 'right';
-
-    // 리셋 버튼
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = '↺';
-    resetBtn.title = '기본 볼륨으로 리셋';
-    resetBtn.style.cssText = `
+  // 저장 버튼 생성
+  createSaveButton() {
+    const saveButton = document.createElement('button');
+    saveButton.className = 'chzzkmate-save-button';
+    saveButton.textContent = '💾';
+    saveButton.title = '현재 볼륨을 이 스트리머에게 저장';
+    saveButton.style.cssText = `
       background: #00FFA3;
       color: black;
       border: none;
       border-radius: 3px;
-      padding: 2px 6px;
-      font-size: 10px;
+      padding: 4px 8px;
+      font-size: 12px;
       cursor: pointer;
+      margin-left: 8px;
+      transition: background 0.2s;
     `;
 
-    // 이벤트 리스너
-    slider.addEventListener('input', (e) => {
-      const volume = parseFloat(e.target.value);
-      this.videoElement.volume = volume;
-      this.updateVolumeText(volume);
+    // 호버 효과
+    saveButton.addEventListener('mouseenter', () => {
+      saveButton.style.background = '#00e68a';
+    });
+    
+    saveButton.addEventListener('mouseleave', () => {
+      saveButton.style.background = '#00FFA3';
     });
 
-    resetBtn.addEventListener('click', () => {
-      this.resetToDefaultVolume();
+    // 클릭 이벤트
+    saveButton.addEventListener('click', () => {
+      this.saveCurrentVolume();
     });
 
-    container.appendChild(volumeIcon);
-    container.appendChild(slider);
-    container.appendChild(volumeText);
-    container.appendChild(resetBtn);
-
-    this.volumeSlider = slider;
-    this.volumeText = volumeText;
-
-    return container;
+    return saveButton;
   }
 
-  // 볼륨 UI 업데이트
-  updateVolumeUI(volume) {
-    if (this.volumeSlider && this.volumeText) {
-      this.volumeSlider.value = volume;
-      this.updateVolumeText(volume);
-    }
-  }
-
-  // 볼륨 텍스트 업데이트
-  updateVolumeText(volume) {
-    if (this.volumeText) {
-      this.volumeText.textContent = `${Math.round(volume * 100)}%`;
-    }
-  }
-
-  // 기본 볼륨으로 리셋
-  async resetToDefaultVolume() {
+  // 현재 볼륨 저장 (저장 버튼용)
+  async saveCurrentVolume() {
     if (!this.streamerId) return;
 
     try {
-      const result = await chrome.storage.sync.get(['defaultVolume', 'streamerVolumes']);
-      const defaultVolume = result.defaultVolume || 0.5;
+      const currentVolume = this.videoElement.volume;
+      const result = await chrome.storage.sync.get(['streamerVolumes']);
       const streamerVolumes = result.streamerVolumes || {};
+      streamerVolumes[this.streamerId] = currentVolume;
       
-      // 개별 설정 제거
-      delete streamerVolumes[this.streamerId];
       await chrome.storage.sync.set({ streamerVolumes });
+      console.log(`ChzzkMate: 볼륨 저장됨 - 스트리머: ${this.streamerId}, 볼륨: ${currentVolume}`);
       
-      // 기본 볼륨 적용
-      this.videoElement.volume = defaultVolume;
-      this.updateVolumeUI(defaultVolume);
-      
-      console.log(`ChzzkMate: 기본 볼륨으로 리셋됨: ${defaultVolume}`);
+      // 토스트 알림 표시
+      this.showToast(`볼륨 ${Math.round(currentVolume * 100)}% 저장됨!`, 'success');
       
     } catch (error) {
-      console.error('ChzzkMate: 리셋 실패:', error);
+      console.error('ChzzkMate: 볼륨 저장 실패:', error);
+      this.showToast('저장 실패', 'error');
     }
   }
 
-  // 비디오 엘리먼트 재확인
-  checkForVideo() {
-    const videos = document.querySelectorAll('video');
-    videos.forEach(video => {
-      if (video !== this.videoElement) {
-        this.handleVideoElement(video);
+  // 토스트 알림 표시
+  showToast(message, type = 'info') {
+    // 기존 토스트 제거
+    const existingToast = document.querySelector('.chzzkmate-toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'chzzkmate-toast';
+    toast.textContent = message;
+    
+    // 타입별 스타일
+    const styles = {
+      success: {
+        background: '#00FFA3',
+        color: '#000',
+        border: '1px solid #00e68a'
+      },
+      error: {
+        background: '#ff4444',
+        color: '#fff',
+        border: '1px solid #ff6666'
+      },
+      info: {
+        background: '#333',
+        color: '#fff',
+        border: '1px solid #555'
       }
-    });
-  }
+    };
 
-  // 정리
-  destroy() {
-    if (this.observer) {
-      this.observer.disconnect();
-    }
-    if (this.volumeUI) {
-      this.volumeUI.remove();
-    }
+    const style = styles[type] || styles.info;
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${style.background};
+      color: ${style.color};
+      border: ${style.border};
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    `;
+
+    document.body.appendChild(toast);
+
+    // 애니메이션
+    setTimeout(() => {
+      toast.style.transform = 'translateX(0)';
+    }, 10);
+
+    // 3초 후 자동 제거
+    setTimeout(() => {
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 300);
+    }, 3000);
   }
 }
 
-// ChzzkMate 초기화
-let chzzkMateController = null;
-
-// 페이지 로드 시 초기화
+// 페이지 로드 시 ChzzkMate 초기화
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    chzzkMateController = new ChzzkMateVolumeController();
+    new ChzzkMate();
   });
 } else {
-  chzzkMateController = new ChzzkMateVolumeController();
+  new ChzzkMate();
 }
-
-// 페이지 언로드 시 정리
-window.addEventListener('beforeunload', () => {
-  if (chzzkMateController) {
-    chzzkMateController.destroy();
-  }
-});
-
-console.log('ChzzkMate: Content script 로드됨');
