@@ -3,25 +3,37 @@
 
 class ChzzkMate {
   constructor() {
-    this.videoElement = null;
     this.streamerId = this.getStreamerId();
+    this.videoElement = null;
+    this.volumeElement = null;
+    this.volumeSetting = {
+      defaultVolume: 0,
+      savedVolumes: 0
+    };
+
     this.saveButton = null;
+    
     this.init();
   }
 
-  init() {
+  async init() {
     console.log('ChzzkMate: 초기화 시작');
     
     // 비디오 엘리먼트 찾기
-    this.findVideoElement();
-    
+    this.videoElement = await this.findVideoElement();
+
+    // 볼륨 엘리먼트 찾기
+    this.volumeElement = await this.findVolumeElement();
+
     // 볼륨 설정 로드
-    this.loadVolumeSetting();
+    this.volumeSetting = await this.loadVolumeSetting();
+    
+    await this.setVolume();
     
     // 저장 버튼 추가
     this.addSaveButton();
     
-    // 볼륨 변경 이벤트 리스너
+    // // 볼륨 변경 이벤트 리스너
     this.setupVolumeListener();
   }
 
@@ -32,37 +44,53 @@ class ChzzkMate {
     return match ? match[1] : null;
   }
 
+  getStreamerName() {
+    // const url = window.location.href;
+    // const match = url.match(/\/live\/([^\/\?]+)/);
+    // return match ? match[1] : null;
+  }
+
   // 비디오 엘리먼트 찾기
-  findVideoElement() {
-    this.videoElement = document.querySelector('video');
-    if (this.videoElement) {
-      console.log('ChzzkMate: 비디오 엘리먼트 발견');
-    } else {
-      console.log('ChzzkMate: 비디오 엘리먼트를 찾을 수 없습니다.');
+  async findVideoElement() {
+    const videoElement = document.querySelector('video');
+    if (videoElement) {
+      return videoElement;
+    }
+    else {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return this.findVideoElement();
     }
   }
 
+  async findVolumeElement() {
+    const volumeElement = document.querySelector('.pzp-pc__volume-control');
+    if (volumeElement) {
+      return volumeElement;
+    }
+    else {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return this.findVolumeElement();
+    }
+  }
   // 볼륨 설정 로드
   async loadVolumeSetting() {
-    if (!this.streamerId || !this.videoElement) return;
+    const result = await chrome.storage.sync.get(['defaultVolume', 'streamerVolumes']);
 
-    try {
-      const result = await chrome.storage.sync.get([this.streamerId]);
-      const savedVolume = result[this.streamerId];
-      
-      if (savedVolume !== undefined) {
-        this.videoElement.volume = savedVolume;
-        console.log(`ChzzkMate: 저장된 볼륨 로드됨 - ${savedVolume}`);
-      } else {
-        // 기본 볼륨 설정
-        this.videoElement.volume = 0.5;
-        console.log('ChzzkMate: 기본 볼륨 설정됨 - 0.5');
-      }
-    } catch (error) {
-      console.error('ChzzkMate: 볼륨 설정 로드 실패:', error);
-    }
+    const defaultVolume = result.defaultVolume || 0.5;
+    const streamerVolumes = result.streamerVolumes[this.streamerId];
+    
+    const volumeSetting = { defaultVolume, streamerVolumes };
+    
+    return volumeSetting;
   }
 
+  async setVolume() {
+    if (this.volumeSetting.streamerVolumes) {
+      this.videoElement.volume = this.volumeSetting.streamerVolumes;
+    } else {
+      this.videoElement.volume = this.volumeSetting.defaultVolume;
+    }
+  }
   // 볼륨 변경 이벤트 리스너
   setupVolumeListener() {
     if (!this.videoElement) return;
@@ -71,6 +99,7 @@ class ChzzkMate {
       if (this.videoElement.volume !== undefined) {
         this.saveVolumeSetting(this.videoElement.volume);
       }
+      console.log('ChzzkMate: 볼륨 변경됨 -', this.videoElement.volume);
     });
   }
 
