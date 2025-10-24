@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "ChzzkMate - 치지직 볼륨 자동 조절",
+  "version": "1.0.0",
+  "description": "치지직 스트리밍 방송별 볼륨을 자동으로 기억하고 적용하는 Chrome 확장프로그램",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://chzzk.naver.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "ChzzkMate - 볼륨 설정",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://chzzk.naver.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

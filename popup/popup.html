@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChzzkMate - 볼륨 설정</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">M</span>
+                <span class="logo-text">ChzzkMate</span>
+            </div>
+            <div class="version">v1.0.0</div>
+        </div>
+
+        <!-- 현재 스트리머 섹션 -->
+        <div class="section" id="currentStreamerSection">
+            <h3>현재 스트리머</h3>
+            <div class="streamer-info">
+                <div class="streamer-id" id="currentStreamerId">스트리머를 찾을 수 없음</div>
+                <div class="volume-control">
+                    <label for="currentVolumeSlider">볼륨:</label>
+                    <div class="slider-container">
+                        <input type="range" id="currentVolumeSlider" min="0" max="1" step="0.01" value="0.5">
+                        <span class="volume-value" id="currentVolumeValue">50%</span>
+                    </div>
+                </div>
+                <div class="volume-type" id="volumeType">기본 볼륨 사용 중</div>
+                <button class="reset-btn" id="resetCurrentBtn">개별 설정 삭제</button>
+            </div>
+        </div>
+
+        <!-- 전체 기본 볼륨 섹션 -->
+        <div class="section">
+            <h3>전체 기본 볼륨</h3>
+            <div class="default-volume-control">
+                <label for="defaultVolumeSlider">새로운 스트리머 기본 볼륨:</label>
+                <div class="slider-container">
+                    <input type="range" id="defaultVolumeSlider" min="0" max="1" step="0.01" value="0.5">
+                    <span class="volume-value" id="defaultVolumeValue">50%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 저장된 스트리머 목록 -->
+        <div class="section">
+            <h3>저장된 스트리머 목록</h3>
+            <div class="streamer-list" id="streamerList">
+                <div class="no-streamers">저장된 스트리머가 없습니다</div>
+            </div>
+        </div>
+
+        <!-- 통계 -->
+        <div class="section stats">
+            <div class="stat-item">
+                <span class="stat-label">저장된 스트리머:</span>
+                <span class="stat-value" id="savedCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">기본 볼륨:</span>
+                <span class="stat-value" id="defaultVolumeDisplay">50%</span>
+            </div>
+        </div>
+
+        <!-- 액션 버튼들 -->
+        <div class="actions">
+            <button class="action-btn secondary" id="clearAllBtn">모든 설정 삭제</button>
+            <button class="action-btn primary" id="refreshBtn">새로고침</button>
+        </div>
+
+        <!-- 푸터 -->
+        <div class="footer">
+            <div class="links">
+                <a href="#" id="githubLink">GitHub</a>
+                <a href="#" id="issueLink">이슈 리포트</a>
+            </div>
+            <div class="description">
+                치지직 방송별 볼륨 자동 조절
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
